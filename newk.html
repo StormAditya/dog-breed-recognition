@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div class="container">
+    <h1>Dog Breed Identifier</h1>
+    <button type="button" onclick="startWebcam()">Start Webcam</button>
+    <button type="button" onclick="stopWebcam()">Stop Webcam</button>
+    
+    <div id="webcam-container"></div>
+    <div id="uploaded-image-container"></div>
+    <div id="label-container"></div>
+</div>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #f0f4f8;
+        color: #333;
+    }
+    
+    .container {
+        text-align: center;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        width: 90%;
+        max-width: 400px;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+        color: #4a90e2;
+        margin-bottom: 20px;
+    }
+    
+    button {
+        background-color: #4a90e2;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 1em;
+        margin: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    
+    button:hover {
+        background-color: #357abd;
+    }
+    
+    #webcam-container, #uploaded-image-container {
+        margin: 20px auto;
+    }
+
+    #uploaded-image {
+        width: 200px;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    #label-container {
+        margin-top: 10px;
+        text-align: left;
+    }
+    
+    .prediction-bar-container {
+        display: flex;
+        align-items: center;
+        margin-top: 5px;
+    }
+    
+    .prediction-label {
+        width: 100px;
+        font-weight: bold;
+        color: #333;
+    }
+
+    .prediction-bar {
+        background-color: #e9f1f7;
+        border-radius: 5px;
+        overflow: hidden;
+        height: 20px;
+        width: 100%;
+        margin-left: 10px;
+        position: relative;
+    }
+
+    .prediction-bar-fill {
+        height: 100%;
+        background-color: #4a90e2;
+        transition: width 0.3s ease;
+    }
+
+    .prediction-percentage {
+        position: absolute;
+        right: 5px;
+        top: 0;
+        color: white;
+        font-size: 0.9em;
+        font-weight: bold;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    const URL = "https://teachablemachine.withgoogle.com/models/hm8mQsQVS/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    async function loadModel() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        labelContainer = document.getElementById("label-container");
+        labelContainer.innerHTML = '';
+    }
+
+    async function startWebcam() {
+        if (!model) await loadModel();
+        
+        webcam = new tmImage.Webcam(200, 200, true);
+        await webcam.setup();
+        await webcam.play();
+        window.requestAnimationFrame(webcamLoop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+    }
+
+    async function webcamLoop() {
+        if (webcam) {
+            webcam.update();
+            await predictWebcam();
+            window.requestAnimationFrame(webcamLoop);
+        }
+    }
+
+    async function predictWebcam() {
+        const prediction = await model.predict(webcam.canvas);
+        displayPrediction(prediction);
+    }
+
+    async function stopWebcam() {
+        if (webcam) {
+            await webcam.stop();
+            document.getElementById("webcam-container").innerHTML = "";
+            webcam = null;
+        }
+    }
+
+    function displayPrediction(predictions) {
+        labelContainer.innerHTML = '';
+        predictions.forEach(pred => {
+            const container = document.createElement("div");
+            container.className = "prediction-bar-container";
+
+            const label = document.createElement("div");
+            label.className = "prediction-label";
+            label.innerText = pred.className;
+            container.appendChild(label);
+
+            const barContainer = document.createElement("div");
+            barContainer.className = "prediction-bar";
+
+            const barFill = document.createElement("div");
+            barFill.className = "prediction-bar-fill";
+            barFill.style.width = `${(pred.probability * 100).toFixed(2)}%`;
+            barContainer.appendChild(barFill);
+
+            const percentage = document.createElement("span");
+            percentage.className = "prediction-percentage";
+            percentage.innerText = `${(pred.probability * 100).toFixed(2)}%`;
+            barContainer.appendChild(percentage);
+
+            container.appendChild(barContainer);
+            labelContainer.appendChild(container);
+        });
+    }
+</script>
+
+</body>
+</html>
